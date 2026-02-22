@@ -1,75 +1,110 @@
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from functools import lru_cache
 
-# Load BERT model 
-@lru_cache(maxsize=1)
-def load_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
+# ----------------------------
+# Load BERT model (once)
+# ----------------------------
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-model = load_model()
+# ----------------------------
+# General Skill List
+# ----------------------------
+GENERAL_SKILLS = [
 
-#Skill List
-skills_list = [
-    "python",
-    "machine learning",
-    "deep learning",
-    "nlp",
-    "tensorflow",
-    "pytorch",
-    "scikit learn",
-    "pandas",
-    "numpy",
-    "sql",
-    "aws",
-    "docker",
-    "fastapi",
-    "flask",
-    "bert",
-    "transformers"
+    # Programming
+    "python", "java", "c++", "c", "javascript", "typescript",
+    "go", "ruby", "php", "swift", "kotlin", "r", "matlab",
+
+    # Web
+    "html", "css", "react", "angular", "vue", "node.js",
+    "express", "django", "flask", "spring boot", "rest api",
+
+    # Database
+    "sql", "mysql", "postgresql", "mongodb", "sqlite", "oracle",
+
+    # Data
+    "excel", "power bi", "tableau", "data analysis",
+    "pandas", "numpy", "statistics",
+
+    # AI / ML
+    "machine learning", "deep learning", "nlp", "computer vision",
+    "tensorflow", "pytorch", "scikit-learn", "xgboost",
+
+    # Cloud / DevOps
+    "aws", "azure", "gcp", "docker", "kubernetes",
+    "ci/cd", "jenkins", "terraform",
+
+    # Tools
+    "git", "github", "gitlab", "linux", "bash", "jira",
+
+    # Core CS
+    "data structures", "algorithms", "oop",
+    "system design", "microservices", "api",
+
+    # Testing
+    "unit testing", "selenium", "pytest",
+
+    # Soft Skills
+    "communication", "teamwork", "leadership",
+    "problem solving", "agile", "scrum"
 ]
 
-# BERT Similarity
-def bert_similarity(resumes, job_desc):
-    resume_embeddings = model.encode(resumes)
-    job_embedding = model.encode([job_desc])
-    scores = cosine_similarity(job_embedding, resume_embeddings)[0]
-    return scores
+# ----------------------------
+# Extract required skills from Job Description
+# ----------------------------
+def extract_required_skills(job_desc):
+    job_desc = job_desc.lower()
+    return [skill for skill in GENERAL_SKILLS if skill in job_desc]
 
+
+# ----------------------------
 # Skill Matching
-def skill_score(resume_text, job_text):
+# ----------------------------
+def skill_match_score(resume_text, required_skills):
     resume_text = resume_text.lower()
-    job_text = job_text.lower()
 
-    job_skills = [s for s in skills_list if s in job_text]
+    matched = [skill for skill in required_skills if skill in resume_text]
 
-    if not job_skills:
+    if len(required_skills) == 0:
         return 0, []
 
-    matched = [s for s in job_skills if s in resume_text]
-
-    score = len(matched) / len(job_skills)
+    score = len(matched) / len(required_skills)
     return score, matched
 
-# Final Score
+
+# ----------------------------
+# Main Matching Function
+# ----------------------------
 def match_resumes(resumes, job_desc):
-    bert_scores = bert_similarity(resumes, job_desc)
+
+    # BERT embeddings
+    job_embedding = model.encode([job_desc])
+    resume_embeddings = model.encode(resumes)
+
+    similarities = cosine_similarity(resume_embeddings, job_embedding).flatten()
+
+    # Extract required skills dynamically
+    required_skills = extract_required_skills(job_desc)
+
     results = []
 
     for i, resume in enumerate(resumes):
-        s_score, matched_skills = skill_score(resume, job_desc)
 
-        final_score = (
-            0.7 * bert_scores[i] +
-            0.3 * s_score
-        )
+        bert_score = float(similarities[i])
+
+        skill_score, matched_skills = skill_match_score(resume, required_skills)
+
+        # ATS Final Score
+        final_score = (0.7 * bert_score) + (0.3 * skill_score)
 
         results.append({
-            "score": final_score,
-            "match_percent": round(final_score * 100, 2),
-            "bert": round(bert_scores[i], 2),
-            "skill_score": round(s_score, 2),
-            "matched_skills": matched_skills
+            "bert": round(bert_score, 3),
+            "skill_score": round(skill_score, 3),
+            "score": round(final_score, 3),
+            "match_percent": int(final_score * 100),
+            "matched_skills": matched_skills,
+            "required_skills": required_skills
         })
 
     return results
