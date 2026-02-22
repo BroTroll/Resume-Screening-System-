@@ -1,8 +1,15 @@
 import re
+import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
-stop_words = set(stopwords.words("english"))
+try:
+    stop_words = set(stopwords.words("english"))
+except LookupError:
+    nltk.download("stopwords")
+    nltk.download("wordnet")
+    stop_words = set(stopwords.words("english"))
+
 lemmatizer = WordNetLemmatizer()
 
 def preprocess_text(text):
